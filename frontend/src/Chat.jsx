@@ -1,22 +1,20 @@
-// Chat.jsx
-import './App.css'; // Importa el archivo de estilos
-import React, { useState, useEffect, useRef } from 'react'
-import io from 'socket.io-client'
-import { FaEdit, FaTrash } from 'react-icons/fa'; // Importa los íconos de editar y eliminar
+import React, { useState, useEffect, useRef } from 'react';
+import io from 'socket.io-client';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 
-const socket = io('/') // http://localhost:4000
+const socket = io('/');
 
 const Chat = ({ isOpen, onClose }) => {
-  const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState([])
-  const messagesEndRef = useRef(null)
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   const handleSubmit = async () => {
-    const response = await fetch('https://itacaapi2-0-1oon.onrender.com/', {
+    const response = await fetch('http://localhost:3000/api/chats/663c414b51302116269e40ab/message/662ed6a4cb0367413933dedf', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -24,37 +22,62 @@ const Chat = ({ isOpen, onClose }) => {
       body: JSON.stringify({
         message,
       }),
-    })
+    });
     if (response.ok) {
-      const data = await response.json()
-      
+      const data = await response.json();
+      console.log('Mensaje enviado con éxito:', data);
+      setMessage('');
+    } else {
+      console.log('Error al enviar el mensaje');
     }
-    else{
-      console.log('Error al enviar el mensaje')
+  };
+
+  const recibeMessages = async () => {
+    try {
+      const response = await fetch('http://localhost:3000/api/chats/663c414b51302116269e40ab/message', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data);
+        scrollToBottom();
+        console.log('Mensajes recibidos exitosamente:', data);
+      } else {
+        console.log('Error al recibir los mensajes');
+      }
+    } catch (error) {
+      console.error('Error al recibir los mensajes:', error);
     }
   };
 
   useEffect(() => {
-    socket.on('message', receiveMessage);
-    scrollToBottom();
+    recibeMessages();
+  }, []);
 
-    return () => {
-      socket.off('message', receiveMessage);
-    };
-  }, [messages]);
+  const handleEditMessage = async (id) => {
+  };
 
-  const receiveMessage = (message) => {
-    setMessages(state => [...state, message])
-    scrollToBottom();
-  }
+  const handleDeleteMessage = async (id) => {
+    try {
+      const response = await fetch(`http://localhost:3000/api/chats/663c414b51302116269e40ab/message/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (response.ok) {
+        console.log('Mensaje eliminado con éxito');
+      } else {
+        console.log('Error al eliminar el mensaje');
+      }
+    } catch (error) {
+      console.error('Error al eliminar el mensaje:', error);
+    }
+  };
 
-  const handleEditMessage = (id) => {
-    // Implementa la lógica para editar un mensaje con el id proporcionado
-  }
-
-  const handleDeleteMessage = (id) => {
-    // Implementa la lógica para eliminar un mensaje con el id proporcionado
-  }
 
   return (
     <div className={`fixed bottom-0 right-0 bg-zinc-800 text-white ${isOpen ? 'block' : 'hidden'}`}>
@@ -63,32 +86,30 @@ const Chat = ({ isOpen, onClose }) => {
         <h1 className='text-2xl font-bold my-2'>Chat</h1>
 
         <ul className="messages-list overflow-y-auto max-h-96 flex-1">
-          {
-            messages.map((message, i) => (
-              <li key={message.id} className={`my-2 p-2 table  rounded-md ${message.from === 'Yo' ? 'bg-sky-700' : 'bg-black ml-auto'}`}>
-                <span className='text-xs text-slate-300 block'>{message.from}</span>
-                <span className='text-xs text-slate-300 block'>{message.time}</span> {/* Muestra la hora del mensaje */}
-                <span className='text-md message-body'>{message.body}</span>
-                <div className='flex'>
-                  <button onClick={() => handleEditMessage(message.id)} className='text-blue-500 mr-2'><FaEdit /></button>
-                  <button onClick={() => handleDeleteMessage(message.id)} className='text-red-500'><FaTrash /></button>
-                </div>
-              </li>
-            ))
-          }
+          {messages.map((message) => (
+            <li key={message._id} className={`my-2 p-2 table rounded-md ${message._id === 'Yo' ? 'bg-sky-700' : 'bg-black ml-auto'}`}>
+              <span className='text-xs text-slate-300 block'>{message.message}</span>
+              <span className='text-xs text-slate-300 block'>{new Date(message.createdAt).toLocaleString()}</span>
+              <span className='text-md message-body'>{message.body}</span>
+              <div className='flex'>
+                <button onClick={() => handleEditMessage(message._id)} className='text-blue-500 mr-2'><FaEdit /></button>
+                <button onClick={() => handleDeleteMessage(message._id)} className='text-red-500'><FaTrash /></button>
+              </div>
+            </li>
+          ))}
           <div ref={messagesEndRef} />
         </ul>
 
         <div className='flex items-center'>
           <input type="text" placeholder='Escribir mensaje'
-            value={message} onChange={(e) => setMessage(e.target.value)} className='border-2 border border-zinc-500 p-2 flex-1 text-black mr-2' />
+            value={message} onChange={(e) => setMessage(e.target.value)} className='border-2 border-zinc-500 p-2 flex-1 text-black mr-2' />
           <button type='submit' onClick={handleSubmit} className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded'>
             Enviar
           </button>
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Chat
+export default Chat;
