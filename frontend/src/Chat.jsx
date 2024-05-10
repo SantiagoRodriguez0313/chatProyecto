@@ -14,23 +14,36 @@ const Chat = ({ isOpen, onClose }) => {
   };
 
   const handleSubmit = async () => {
-    const response = await fetch('http://localhost:3000/api/chats/663c414b51302116269e40ab/message/662ed6a4cb0367413933dedf', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message,
-      }),
-    });
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Mensaje enviado con éxito:', data);
-      setMessage('');
-    } else {
-      console.log('Error al enviar el mensaje');
+    try {
+      const response = await fetch('http://localhost:3000/api/chats/663c414b51302116269e40ab/message/662ed6a4cb0367413933dedf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        socket.emit('message', message);
+        console.log('Mensaje enviado con éxito:', data);
+        setMessage('');
+  
+        // Actualiza el estado de los mensajes agregando el nuevo mensaje al final del array
+        setMessages(prevMessages => [...prevMessages, data]);
+  
+        // Llama a la función para cargar los mensajes nuevamente
+        recibeMessages();
+      } else {
+        console.log('Error al enviar el mensaje');
+      }
+    } catch (error) {
+      console.error('Error al enviar el mensaje:', error);
     }
   };
+  
+
 
   const recibeMessages = async () => {
     try {
@@ -55,7 +68,18 @@ const Chat = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     recibeMessages();
+
+    socket.on('message', (newMessage) => {
+      setMessages(prevMessages => [...prevMessages, newMessage]);
+      scrollToBottom();
+      recibeMessages();
+    });
+
+    return () => {
+      socket.off('message');
+    };
   }, []);
+
 
   const handleEditMessage = async (id) => {
   };
@@ -70,6 +94,7 @@ const Chat = ({ isOpen, onClose }) => {
       });
       if (response.ok) {
         console.log('Mensaje eliminado con éxito');
+        recibeMessages();
       } else {
         console.log('Error al eliminar el mensaje');
       }
@@ -89,7 +114,7 @@ const Chat = ({ isOpen, onClose }) => {
           {messages.map((message) => (
             <li key={message._id} className={`my-2 p-2 table rounded-md ${message._id === 'Yo' ? 'bg-sky-700' : 'bg-black ml-auto'}`}>
               <span className='text-xs text-slate-300 block'>{message.message}</span>
-              <span className='text-xs text-slate-300 block'>{new Date(message.createdAt).toLocaleString()}</span>
+              <span className='text-xs text-slate-300 block'>{new Date(message.createdAt).toLocaleString()}</span> {/* Formatea la fecha aquí */}
               <span className='text-md message-body'>{message.body}</span>
               <div className='flex'>
                 <button onClick={() => handleEditMessage(message._id)} className='text-blue-500 mr-2'><FaEdit /></button>
@@ -99,7 +124,6 @@ const Chat = ({ isOpen, onClose }) => {
           ))}
           <div ref={messagesEndRef} />
         </ul>
-
         <div className='flex items-center'>
           <input type="text" placeholder='Escribir mensaje'
             value={message} onChange={(e) => setMessage(e.target.value)} className='border-2 border-zinc-500 p-2 flex-1 text-black mr-2' />
